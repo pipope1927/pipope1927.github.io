@@ -65,28 +65,51 @@ textarea{min-height:96px;resize:vertical}input:focus,select:focus,textarea:focus
 <div class="dock"><div class="dock-inner"><button class="btn secondary" id="exportBtn" type="button">Exportar respaldo</button><label class="btn ghost" for="importInput" style="display:grid;place-items:center;cursor:pointer">Importar respaldo</label><input class="sr-only" id="importInput" type="file" accept="application/json" /></div></div>
 <script>
 const STORAGE_KEY='registro-nenufares-v4';
-const ubicaciones={
-'Jardín acuático (jardín baldío)':[ {id:'JA-GRANDE',nombre:'Estanque grande',detalle:'Circular · 6 m diámetro · plantas madre vigorosas'}, {id:'JA-MEDIANO',nombre:'Estanque mediano',detalle:'Circular · 5 m diámetro · madres estables y divisiones fuertes'}, {id:'JA-CHICO',nombre:'Estanque chico',detalle:'Circular · 4 m diámetro · observación y plantas madre compactas'} ],
-'Jardín botánico':[ {id:'JB-5M',nombre:'Estanque jardín botánico',detalle:'Circular · 5 m diámetro · exhibición o colección seleccionada'} ],
-'Almacenamiento de agua':[ {id:'AA-ESTANQUE',nombre:'Estanque almacenamiento de agua',detalle:'Espacio de apoyo temporal o recuperación'} ],
-'Jardín del mercado':[ {id:'JM-4M',nombre:'Estanque mercado 4 m',detalle:'Circular · 4 m diámetro · exhibición y venta'}, {id:'JM-3M',nombre:'Estanque mercado 3 m',detalle:'Circular · 3 m diámetro · rotación de plantas'}, {id:'JM-TINA-1',nombre:'Tina / bebedero 1',detalle:'3 m × 1 m × 60 cm'}, {id:'JM-TINA-2',nombre:'Tina / bebedero 2',detalle:'3 m × 1 m × 60 cm'}, {id:'JM-TINA-3',nombre:'Tina / bebedero 3',detalle:'3 m × 1 m × 60 cm'}, {id:'JM-TINA-4',nombre:'Tina / bebedero 4',detalle:'3 m × 1 m × 60 cm'}, {id:'JM-TINA-5',nombre:'Tina / bebedero 5',detalle:'3 m × 1 m × 60 cm'} ]
+const ubicaciones = {
+  'Jardín acuático (jardín baldío)': [
+    { id: 'JA-GRANDE', nombre: 'Estanque grande', detalle: 'Circular · 6 m diámetro · plantas madre vigorosas' },
+    { id: 'JA-MEDIANO', nombre: 'Estanque mediano', detalle: 'Circular · 5 m diámetro · madres estables y divisiones fuertes' },
+    { id: 'JA-CHICO', nombre: 'Estanque chico', detalle: 'Circular · 4 m diámetro · observación y plantas madre compactas' }
+  ],
+  'Jardín botánico': [
+    { id: 'JB-5M', nombre: 'Estanque jardín botánico', detalle: 'Circular · 5 m diámetro · exhibición o colección seleccionada' }
+  ],
+  'Almacenamiento de agua': [
+    { id: 'AA-ESTANQUE', nombre: 'Estanque almacenamiento de agua', detalle: 'Espacio de apoyo temporal o recuperación' }
+  ],
+  'Jardín del mercado': [
+    { id: 'JM-4M', nombre: 'Estanque mercado 4 m', detalle: 'Circular · 4 m diámetro · exhibición y venta' },
+    { id: 'JM-3M', nombre: 'Estanque mercado 3 m', detalle: 'Circular · 3 m diámetro · rotación de plantas' },
+    { id: 'JM-TINA-1', nombre: 'Tina / bebedero 1', detalle: '3 m × 1 m × 60 cm' },
+    { id: 'JM-TINA-2', nombre: 'Tina / bebedero 2', detalle: '3 m × 1 m × 60 cm' },
+    { id: 'JM-TINA-3', nombre: 'Tina / bebedero 3', detalle: '3 m × 1 m × 60 cm' },
+    { id: 'JM-TINA-4', nombre: 'Tina / bebedero 4', detalle: '3 m × 1 m × 60 cm' },
+    { id: 'JM-TINA-5', nombre: 'Tina / bebedero 5', detalle: '3 m × 1 m × 60 cm' }
+  ]
 };
-const recomendaciones=['Jardín acuático: deja aquí las plantas madre, usando el grande para las más fuertes, el mediano para madres y divisiones buenas y el chico para control cercano.','Jardín botánico: reserva este espacio para variedades atractivas o ejemplares que quieras mostrar.','Almacenamiento de agua: úsalo como zona temporal de recuperación, espera o movimiento.','Jardín del mercado: coloca estanques grandes para venta y tinas para lotes, divisiones o híbridos jóvenes.'];
-let plantas=[]; let fotosTemporales=[]; let ventas=[]; let capsulas=[];
-const $=id=>document.getElementById(id);
-function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
-async function load(){
-  const { data, error } = await supabase.from('plantas').select('*').order('variedad');
-  if (!error && Array.isArray(data)) plantas = data;
+function populateUbicaciones() {
+  const ubicacionSelect = $('ubicacion');
+  const filtroUbicacion = $('filterUbicacion');
+  ubicacionSelect.innerHTML = '<option value="">Selecciona una ubicación</option>';
+  filtroUbicacion.innerHTML = '<option value="">Todas las ubicaciones</option>';
+  Object.keys(ubicaciones).forEach(nombre => {
+    ubicacionSelect.insertAdjacentHTML('beforeend', `<option value="${nombre}">${nombre}</option>`);
+    filtroUbicacion.insertAdjacentHTML('beforeend', `<option value="${nombre}">${nombre}</option>`);
+  });
 }
-async function savePlant(entry){
-  const { error } = await supabase.from('plantas').upsert([entry], { onConflict: 'id' });
-  if (error) throw error;
+function populateEstanques(selectedUbi = '', selected = '') {
+  const estanqueSelect = $('estanque');
+  const filtroEstanque = $('filterEstanque');
+  estanqueSelect.innerHTML = '<option value="">Selecciona un estanque o tina</option>';
+  filtroEstanque.innerHTML = '<option value="">Todos los estanques</option>';
+  const all = Object.values(ubicaciones).flat();
+  const source = selectedUbi ? (ubicaciones[selectedUbi] || []) : all;
+  source.forEach(item => {
+    estanqueSelect.insertAdjacentHTML('beforeend', `<option value="${item.id}">${item.nombre} · ${item.detalle}</option>`);
+    filtroEstanque.insertAdjacentHTML('beforeend', `<option value="${item.id}">${item.nombre}</option>`);
+  });
+  if (selected) estanqueSelect.value = selected;
 }
-function estanqueInfo(ubi,id){return (ubicaciones[ubi]||[]).find(x=>x.id===id)}
-function populateUbicaciones(){ $('ubicacion').innerHTML='<option value="">Selecciona una ubicación</option>'; $('filterUbicacion').innerHTML='<option value="">Todas las ubicaciones</option>'; Object.keys(ubicaciones).forEach(n=>{ $('ubicacion').insertAdjacentHTML('beforeend',`<option value="${n}">${n}</option>`); $('filterUbicacion').insertAdjacentHTML('beforeend',`<option value="${n}">${n}</option>`); }); }
-function populateColores(){ const opts=['','Nenúfares','Multicolor']; $('colorPlanta').innerHTML = "<option value=\"\">Selecciona</option>" + opts.slice(1).map(x=>`<option>${x}</option>`).join(''); $('filterColor').innerHTML = "<option value=\"\">Todos los colores</option>" + opts.slice(1).map(x=>`<option>${x}</option>`).join(''); }
-function populateEstanques(selectedUbi, selected=''){ $('estanque').innerHTML='<option value="">Selecciona un estanque o tina</option>'; $('filterEstanque').innerHTML='<option value="">Todos los estanques</option>'; const all=Object.values(ubicaciones).flat(); const list=selectedUbi?(ubicaciones[selectedUbi]||[]):all; list.forEach(item=>{ if(selectedUbi){ $('estanque').insertAdjacentHTML('beforeend',`<option value="${item.id}">${item.nombre} · ${item.detalle}</option>`); } $('filterEstanque').insertAdjacentHTML('beforeend',`<option value="${item.id}">${item.nombre}</option>`); }); if(selected) $('estanque').value=selected; }
 function renderLocations(){ $('locationList').innerHTML=''; Object.entries(ubicaciones).forEach(([nombre,items])=>{ const div=document.createElement('div'); div.className='location'; div.innerHTML=`<strong>${nombre}</strong><span class="badge">${items.length} espacios</span><div class="hint" style="margin-top:8px">${items.map(i=>`${i.nombre}: ${i.detalle}`).join('<br>')}</div>`; $('locationList').appendChild(div); }); const rec=document.createElement('div'); rec.className='location'; rec.innerHTML=`<strong>Recomendación de acomodo</strong><div class="hint" style="margin-top:8px">${recomendaciones.join('<br><br>')}</div>`; $('locationList').appendChild(rec); }
 function formatDate(v){ if(!v) return '—'; return new Date(v+'T00:00:00').toLocaleDateString('es-MX',{year:'numeric',month:'short',day:'numeric'}) }
 function updateSummary(){ $('countRegistros').textContent=plantas.length; $('countPlantas').textContent=plantas.reduce((s,p)=>s+(Number(p.cantidad)||0),0); $('countUbicaciones').textContent=new Set(plantas.map(p=>p.ubicacion)).size; $('countFotos').textContent=plantas.filter(p=>(p.fotos||[]).length).length; $('countVentas').textContent=ventas.reduce((s,v)=>s+(Number(v.cantidad)||0),0) }
