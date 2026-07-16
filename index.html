@@ -87,9 +87,11 @@ const ubicaciones = {
     { id: 'JM-TINA-5', nombre: 'Tina / bebedero 5', detalle: '3 m × 1 m × 60 cm' }
   ]
 };
+const $ = (id) => document.getElementById(id);
 function populateUbicaciones() {
   const ubicacionSelect = $('ubicacion');
   const filtroUbicacion = $('filterUbicacion');
+  if (!ubicacionSelect || !filtroUbicacion) return;
   ubicacionSelect.innerHTML = '<option value="">Selecciona una ubicación</option>';
   filtroUbicacion.innerHTML = '<option value="">Todas las ubicaciones</option>';
   Object.keys(ubicaciones).forEach(nombre => {
@@ -100,13 +102,20 @@ function populateUbicaciones() {
 function populateEstanques(selectedUbi = '', selected = '') {
   const estanqueSelect = $('estanque');
   const filtroEstanque = $('filterEstanque');
+  if (!estanqueSelect || !filtroEstanque) return;
   estanqueSelect.innerHTML = '<option value="">Selecciona un estanque o tina</option>';
   filtroEstanque.innerHTML = '<option value="">Todos los estanques</option>';
   const all = Object.values(ubicaciones).flat();
   const source = selectedUbi ? (ubicaciones[selectedUbi] || []) : all;
   source.forEach(item => {
-    estanqueSelect.insertAdjacentHTML('beforeend', `<option value="${item.id}">${item.nombre} · ${item.detalle}</option>`);
-    filtroEstanque.insertAdjacentHTML('beforeend', `<option value="${item.id}">${item.nombre}</option>`);
+    estanqueSelect.insertAdjacentHTML(
+      'beforeend',
+      `<option value="${item.id}">${item.nombre} · ${item.detalle}</option>`
+    );
+    filtroEstanque.insertAdjacentHTML(
+      'beforeend',
+      `<option value="${item.id}">${item.nombre}</option>`
+    );
   });
   if (selected) estanqueSelect.value = selected;
 }
