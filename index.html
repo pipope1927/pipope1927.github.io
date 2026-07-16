@@ -75,8 +75,14 @@ const recomendaciones=['Jardín acuático: deja aquí las plantas madre, usando 
 let plantas=[]; let fotosTemporales=[]; let ventas=[]; let capsulas=[];
 const $=id=>document.getElementById(id);
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
-function save(){localStorage.setItem(STORAGE_KEY,JSON.stringify({plantas,ventas}))}
-function load(){const raw=localStorage.getItem(STORAGE_KEY); if(!raw) return; try{const data=JSON.parse(raw); plantas=Array.isArray(data.plantas)?data.plantas:[]; ventas=Array.isArray(data.ventas)?data.ventas:[]}catch(e){}}
+async function load(){
+  const { data, error } = await supabase.from('plantas').select('*').order('variedad');
+  if (!error && Array.isArray(data)) plantas = data;
+}
+async function savePlant(entry){
+  const { error } = await supabase.from('plantas').upsert([entry], { onConflict: 'id' });
+  if (error) throw error;
+}
 function estanqueInfo(ubi,id){return (ubicaciones[ubi]||[]).find(x=>x.id===id)}
 function populateUbicaciones(){ $('ubicacion').innerHTML='<option value="">Selecciona una ubicación</option>'; $('filterUbicacion').innerHTML='<option value="">Todas las ubicaciones</option>'; Object.keys(ubicaciones).forEach(n=>{ $('ubicacion').insertAdjacentHTML('beforeend',`<option value="${n}">${n}</option>`); $('filterUbicacion').insertAdjacentHTML('beforeend',`<option value="${n}">${n}</option>`); }); }
 function populateColores(){ const opts=['','Nenúfares','Multicolor']; $('colorPlanta').innerHTML = "<option value=\"\">Selecciona</option>" + opts.slice(1).map(x=>`<option>${x}</option>`).join(''); $('filterColor').innerHTML = "<option value=\"\">Todos los colores</option>" + opts.slice(1).map(x=>`<option>${x}</option>`).join(''); }
@@ -93,14 +99,43 @@ function resetForm(){ $('plantId').value=''; $('plantForm').reset(); $('cantidad
 function filesToData(files){ return Promise.all(Array.from(files||[]).map(file=>new Promise((resolve,reject)=>{ const reader=new FileReader(); reader.onload=()=>resolve(reader.result); reader.onerror=reject; reader.readAsDataURL(file); }))) }
 window.editPlant=function(id){ const p=plantas.find(x=>x.id===id); if(!p) return; $('plantId').value=p.id; $('variedad').value=p.variedad; $('tipo').value=p.tipo; $('cantidad').value=p.cantidad; $('ubicacion').value=p.ubicacion; populateEstanques(p.ubicacion,p.estanque); $('fechaHibridacion').value=p.fechaHibridacion||''; $('hibridoCon').value=p.hibridoCon||''; $('fechaTrasplante').value=p.fechaTrasplante||''; $('notas').value=p.notas||''; fotosTemporales=p.fotos||[]; window.scrollTo({top:0,behavior:'smooth'}); }
 window.deletePlant=function(id){ const p=plantas.find(x=>x.id===id); if(!p) return; if(!confirm(`¿Eliminar ${p.variedad}?`)) return; plantas=plantas.filter(x=>x.id!==id); save(); renderCatalog(); }
-$('plantForm').addEventListener('submit', async e=>{ e.preventDefault(); const nuevas=$('fotos').files?.length?await filesToData($('fotos').files):[]; const entry={ id:$('plantId').value||uid(), variedad:$('variedad').value.trim(), tipo:$('tipo').value, cantidad:Number($('cantidad').value)||1, ubicacion:$('ubicacion').value, estanque:$('estanque').value, fechaHibridacion:$('fechaHibridacion').value, hibridoCon:$('hibridoCon').value.trim(), fechaTrasplante:$('fechaTrasplante').value, notas:$('notas').value.trim(), fotos:nuevas.length?[...fotosTemporales,...nuevas]:fotosTemporales }; if(!entry.variedad||!entry.tipo||!entry.ubicacion||!entry.estanque){ alert('Completa variedad, tipo, ubicación y estanque.'); return; } const i=plantas.findIndex(x=>x.id===entry.id); if(i>=0) plantas[i]=entry; else plantas.push(entry); save(); resetForm(); renderCatalog(); });
-$('ubicacion').addEventListener('change',()=>populateEstanques($('ubicacion').value)); $('clearFormBtn').addEventListener('click',resetForm); $('searchInput').addEventListener('input',renderCatalog); $('filterColor').addEventListener('change',renderCatalog); $('filterUbicacion').addEventListener('change',()=>{ const v=$('filterUbicacion').value; $('filterEstanque').innerHTML='<option value="">Todos los estanques</option>'; const source=v?(ubicaciones[v]||[]):Object.values(ubicaciones).flat(); source.forEach(item=>$('filterEstanque').insertAdjacentHTML('beforeend',`<option value="${item.id}">${item.nombre}</option>`)); renderCatalog(); }); $('filterEstanque').addEventListener('change',renderCatalog);
-$('registerSale').addEventListener('click',()=>{ const id=$('salePlant').value; const qty=Number($('saleQty').value)||1; const date=$('saleDate').value || new Date().toISOString().slice(0,10); const p=plantas.find(x=>x.id===id); if(!p){ alert('Selecciona una planta.'); return; } if(qty<1){ alert('La cantidad debe ser mayor que 0.'); return; } if((Number(p.cantidad)||0) < qty){ alert('No tienes suficientes plantas disponibles.'); return; } p.cantidad = Number(p.cantidad) - qty; ventas.push({ variedad:p.variedad, cantidad:qty, fecha:date, ubicacion:p.ubicacion, estanque:p.estanque }); save(); renderCatalog(); });
-$('registerCapsula')?.addEventListener('click',()=>{ const entry={ nombre:$('capsulaNombre').value.trim(), color:$('capsulaColor').value.trim(), fechaGerminacion:$('capsulaFechaG').value, fechaTrasplante:$('capsulaFechaT').value, plantas:Number($('capsulaPlantas').value)||0, notas:$('capsulaNotas').value.trim() }; if(!entry.nombre){ alert('Escribe el nombre de la cápsula.'); return; } capsulas.unshift(entry); save(); alert('Cápsula guardada.'); });
-$('exportBtn').addEventListener('click',()=>{ const blob=new Blob([JSON.stringify({plantas,ventas,capsulas,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`respaldo-nenufares-${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href); });
-$('importInput').addEventListener('change',async e=>{ const file=e.target.files?.[0]; if(!file) return; try{ const text=await file.text(); const data=JSON.parse(text); const importedPlantas=Array.isArray(data.plantas)?data.plantas:Array.isArray(data)?data:[]; const importedVentas=Array.isArray(data.ventas)?data.ventas:[]; const importedCapsulas=Array.isArray(data.capsulas)?data.capsulas:[]; if(!importedPlantas.length){ alert('El archivo no tiene plantas válidas. Debe incluir un arreglo llamado plantas.'); return; } if(!confirm('Esto reemplazará los registros de este dispositivo. ¿Continuar?')) return; plantas=importedPlantas; ventas=importedVentas; capsulas=importedCapsulas; save(); renderCatalog(); resetForm(); }catch(err){ alert('No se pudo importar el respaldo. Verifica que sea un JSON exportado por la app.'); } e.target.value=''; });
-$('capsulaFechaT').addEventListener('change',()=>{});
-$('showInstall').addEventListener('click',()=>$('installBox').classList.toggle('show')); $('scrollForm').addEventListener('click',()=>document.getElementById('captureSection').scrollIntoView({behavior:'smooth'}));
+$('plantForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const nuevas = $('fotos').files?.length ? await filesToData($('fotos').files) : [];
+  const entry = {
+    id: $('plantId').value || uid(),
+    variedad: $('variedad').value.trim(),
+    tipo: $('tipo').value,
+    cantidad: Number($('cantidad').value) || 1,
+    ubicacion: $('ubicacion').value,
+    estanque: $('estanque').value,
+    fechaHibridacion: $('fechaHibridacion').value,
+    hibridoCon: $('hibridoCon').value.trim(),
+    fechaTrasplante: $('fechaTrasplante').value,
+    notas: $('notas').value.trim(),
+    colorPlanta: $('colorPlanta')?.value || '',
+    colorDetalle: $('colorDetalle')?.value || '',
+    categoriaPlanta: $('categoriaPlanta')?.value || '',
+    estadoPlanta: $('estadoPlanta')?.value || '',
+    fotos: nuevas.length ? [...fotosTemporales, ...nuevas] : fotosTemporales
+  };
+
+  if (!entry.variedad || !entry.tipo || !entry.ubicacion || !entry.estanque) {
+    alert('Completa variedad, tipo, ubicación y estanque.');
+    return;
+  }
+  try {
+    const { error } = await supabase.from('plantas').upsert([entry], { onConflict: 'id' });
+    if (error) throw error;
+
+    await load();
+    resetForm();
+    renderCatalog();
+  } catch (err) {
+    alert('No se pudo guardar en Supabase. Revisa la tabla y vuelve a intentar.');
+    console.error(err);
+  }
+});
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 <script>
   const supabaseUrl = 'https://wbmqxzcnocsrzbemwtav.supabase.co';
