@@ -101,7 +101,18 @@ $('exportBtn').addEventListener('click',()=>{ const blob=new Blob([JSON.stringif
 $('importInput').addEventListener('change',async e=>{ const file=e.target.files?.[0]; if(!file) return; try{ const text=await file.text(); const data=JSON.parse(text); const importedPlantas=Array.isArray(data.plantas)?data.plantas:Array.isArray(data)?data:[]; const importedVentas=Array.isArray(data.ventas)?data.ventas:[]; const importedCapsulas=Array.isArray(data.capsulas)?data.capsulas:[]; if(!importedPlantas.length){ alert('El archivo no tiene plantas válidas. Debe incluir un arreglo llamado plantas.'); return; } if(!confirm('Esto reemplazará los registros de este dispositivo. ¿Continuar?')) return; plantas=importedPlantas; ventas=importedVentas; capsulas=importedCapsulas; save(); renderCatalog(); resetForm(); }catch(err){ alert('No se pudo importar el respaldo. Verifica que sea un JSON exportado por la app.'); } e.target.value=''; });
 $('capsulaFechaT').addEventListener('change',()=>{});
 $('showInstall').addEventListener('click',()=>$('installBox').classList.toggle('show')); $('scrollForm').addEventListener('click',()=>document.getElementById('captureSection').scrollIntoView({behavior:'smooth'}));
-load(); populateUbicaciones(); populateColores(); populateEstanques(''); renderLocations(); renderCatalog();
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script>
+  const supabaseUrl = 'https://wbmqxzcnocsrzbemwtav.supabase.co';
+  const supabaseKey = 'sb_publishable_dUbalU397gnyJi114dGCog_jE7jAunX';
+  const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+  load();
+  populateUbicaciones();
+  populateColores();
+  populateEstanques('');
+  renderLocations();
+  renderCatalog();
 </script>
 </body>
 </html>
